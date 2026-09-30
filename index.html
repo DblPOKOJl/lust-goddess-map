@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0e1120">
+<title>🗺️ Клановая карта — админ-панель</title>
+<style>
+:root{--bg:#0e1120;--panel:#161a2c;--panel2:#1e2338;--line:#2a3050;--txt:#e8eaf6;--dim:#8b91b5}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;touch-action:manipulation}
+header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 10px;border-bottom:1px solid var(--line)}
+h1{font-size:14px;margin:0;font-weight:700}
+#resetBtn{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--dim);font-size:14px;cursor:pointer}
+#resetBtn:hover{color:#ff6b6b;border-color:#ff6b6b}
+main{flex:1;min-height:0;max-width:1100px;width:100%;margin:0 auto;padding:6px 8px 8px;display:flex;flex-direction:column;gap:6px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+#clanPanel{flex:0 0 auto}
+#clanList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.clan{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 6px;border-radius:9px;border:1px solid transparent;background:var(--panel2);cursor:pointer}
+.dot{flex:0 0 auto;width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.name.placeholder{color:var(--dim)}
+.nameInput{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--txt);font-size:13px;padding:4px 2px;white-space:nowrap;overflow:hidden}
+.nameInput:focus{box-shadow:0 1px 0 var(--dim)}
+.edit{flex:0 0 auto;min-width:56px;text-align:center;background:none;border:none;padding:4px 2px;color:var(--dim);font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.edit:active{color:var(--txt)}
+.score{flex:0 0 44px;text-align:right;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.score.zero{color:var(--dim);font-weight:500}
+#mapPanel{flex:1;min-height:0;display:flex;flex-direction:column}
+#mapGrid{flex:1;min-height:0;display:grid;grid-template-columns:22px repeat(6,1fr);grid-template-rows:auto repeat(5,1fr);gap:4px}
+.coord{display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;font-weight:700}
+.cell{position:relative;min-height:0;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;letter-spacing:.5px;transition:background .15s;cursor:pointer}
+.cell.empty{color:rgba(139,145,181,.4);font-size:9px;font-weight:600}
+.cell.entr{animation:pulse .8s ease-in-out infinite alternate}
+@keyframes pulse{from{box-shadow:inset 0 0 0 3px var(--ec)}to{box-shadow:inset 0 0 0 5px var(--ec),0 0 14px var(--ec)}}
+#overlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(6,9,20,.65);backdrop-filter:blur(3px)}
+#overlay.show{display:flex}
+.modal{width:min(320px,86vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;text-align:center}
+.modal p{margin:0 0 16px;font-size:14px}
+.modal .btns{display:flex;gap:8px;justify-content:center}
+.modal button{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer}
+.modal button.danger{background:#5a1220;border-color:#a2263a;color:#ffb3bd}
+@media(min-width:860px){
+ body{height:auto;min-height:100dvh;overflow:auto}
+ main{flex-direction:row;align-items:flex-start;padding:12px 16px;gap:14px}
+ #clanPanel{flex:0 0 350px;position:sticky;top:10px}
+ .clan{padding:5px 8px 5px 6px}
+ .name,.nameInput{font-size:14px}
+ .score{font-size:14px}
+ #mapPanel{flex:1}
+ #mapGrid{flex:0 0 auto;grid-template-columns:30px repeat(6,1fr);grid-template-rows:auto repeat(5,auto);gap:6px}
+ .cell{aspect-ratio:1/1;font-size:14px}
+ .cell.empty{font-size:10px}
+}
+</style>
+</head>
+<body>
+<header>
+ <h1>🗺️ Клановая карта</h1>
+ <button id="resetBtn" title="Сбросить всё к умолчанию" aria-label="Сбросить всё">↺</button>
+</header>
+<main>
+ <section class="panel" id="clanPanel">
+  <ul id="clanList"></ul>
+ </section>
+ <section class="panel" id="mapPanel">
+  <div id="mapGrid"></div>
+ </section>
+</main>
+<div id="overlay"><div class="modal">
+ <p>Сбросить названия кланов и карту<br>к начальному состоянию?</p>
+ <div class="btns"><button id="cancelBtn">Отмена</button><button id="confirmBtn" class="danger">Сбросить</button></div>
+</div></div>
+<script>
+const ROWS=['A','B','C','D','E'],COLS=[1,2,3,4,5,6];
+const CLANS=[
+ {c:'#66ffff',t:'#053b3b'}, // 1 циан
+ {c:'#7d9dff',t:'#0d1b4d'}, // 2 светло-синий
+ {c:'#2e2bff',t:'#ffffff'}, // 3 тёмно-синий
+ {c:'#f49fff',t:'#4d0f4d'}, // 4 розовый
+ {c:'#ff4646',t:'#ffffff'}, // 5 красный
+ {c:'#66e666',t:'#0a3a0a'}, // 6 светло-зелёный
+ {c:'#f8e88c',t:'#3c3400'}, // 7 жёлтый
+ {c:'#a66b25',t:'#ffffff'}, // 8 коричневый
+ {c:'#a93bff',t:'#ffffff'}, // 9 фиолетовый
+ {c:'#0c9c6a',t:'#ffffff'}  // 10 тёмно-зелёный
+];
+const ENTRANCES=[
+ ['A2','A6','D1','D6','E4'],
+ ['A3','A6','B1','D6','E4'],
+ ['A1','A4','C6','D1','E5'],
+ ['A2','A5','C1','E3','E6'],
+ ['A2','A5','B6','D1','E3'],
+ ['A3','B1','C6','E1','E4'],
+ ['A4','B6','C1','E2','E6'],
+ ['A1','A5','D6','E2','E5'],
+ ['A3','C1','C6','E2','E5'],
+ ['A4','B1','B6','E1','E3']
+];
+const LS='clan-map-v1';
+const cellValue=id=>{const r=id[0],c=+id[1];return(r==='A'||r==='E'||c===1||c===6)?500:1000;};
+const rgba=(hex,a)=>{const n=parseInt(hex.slice(1),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;};
+const tag=name=>{const s=(name||'').trim().slice(0,3).toUpperCase();return s||'···';};
+const defState=()=>({names:CLANS.map((_,i)=>'Клан '+(i+1)),cells:{}});
+function load(){try{const d=JSON.parse(localStorage.getItem(LS));if(!d||!Array.isArray(d.names)||d.names.length!==10||typeof d.cells!=='object'||!d.cells)return null;
+ const cells={};for(const k in d.cells){const v=d.cells[k];if(ROWS.includes(k[0])&&COLS.includes(+k.slice(1))&&Number.isInteger(v)&&v>=0&&v<10)cells[k]=v;}
+ return{names:d.names.map(String),cells};}catch(e){return null;}}
+let state=load()||defState();
+let selected=null,editingIndex=null,ignoreNextClick=false;
+const $=s=>document.querySelector(s);
+const list=$('#clanList'),grid=$('#mapGrid');
+const rowEls=[],scoreEls=[],cellEls={},rowAPI=[];
+const save=()=>localStorage.setItem(LS,JSON.stringify(state));
+function swallowClick(){if(ignoreNextClick){ignoreNextClick=false;return true;}return false;}
+
+CLANS.forEach((cl,i)=>{
+ const li=document.createElement('li');li.className='clan';
+ li.innerHTML=`<span class="dot" style="background:${cl.c}"></span><span class="name"></span><input class="nameInput" maxlength="40" enterkeyhint="done" hidden><button class="edit" type="button">изменить</button><span class="score zero">0</span>`;
+ const nameEl=li.querySelector('.name'),inp=li.querySelector('.nameInput'),editBtn=li.querySelector('.edit');
+ const setNameText=()=>{const t=state.names[i].trim();nameEl.textContent=t?state.names[i]:'Клан '+(i+1);nameEl.classList.toggle('placeholder',!t);};
+ setNameText();
+ const open=()=>{editingIndex=i;inp.value=state.names[i];nameEl.hidden=true;inp.hidden=false;editBtn.textContent='готово';inp.focus();inp.select();};
+ const commit=()=>{if(editingIndex!==i)return;editingIndex=null;state.names[i]=inp.value;save();inp.hidden=true;nameEl.hidden=false;editBtn.textContent='изменить';setNameText();renderMap();};
+ editBtn.addEventListener('click',()=>{if(swallowClick())return;if(editingIndex===i)return;open();});
+ inp.addEventListener('input',()=>{state.names[i]=inp.value;save();renderMap();});
+ inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}});
+ inp.addEventListener('blur',()=>commit());
+ li.addEventListener('click',e=>{if(swallowClick())return;if(e.target.closest('.edit')||e.target.closest('input'))return;selected=(selected===i?null:i);renderClans();renderMap();});
+ list.appendChild(li);
+ rowEls.push(li);scoreEls.push(li.querySelector('.score'));
+ rowAPI.push({setNameText,commit,inp});
+});
+
+/* коммит редактирования по нажатию куда угодно вне инпута —
+   не зависим от click, который на мобилках съедается закрытием клавиатуры */
+document.addEventListener('pointerdown',e=>{
+ if(editingIndex===null)return;
+ if(e.target===rowAPI[editingIndex].inp)return;
+ ignoreNextClick=true;setTimeout(()=>{ignoreNextClick=false;},600);
+ rowAPI[editingIndex].commit();
+},true);
+
+grid.appendChild(Object.assign(document.createElement('div'),{className:'coord'}));
+COLS.forEach(c=>{const d=document.createElement('div');d.className='coord';d.textContent=c;grid.appendChild(d);});
+ROWS.forEach(r=>{
+ const rl=document.createElement('div');rl.className='coord';rl.textContent=r;grid.appendChild(rl);
+ COLS.forEach(c=>{
+  const id=r+c,el=document.createElement('div');el.className='cell empty';el.dataset.cell=id;
+  el.addEventListener('click',()=>{if(swallowClick())return;if(selected!==null)place(id,selected);});
+  grid.appendChild(el);cellEls[id]=el;
+ });
+});
+
+function place(id,i){state.cells[id]=i;save();renderMap();renderClans();}
+function renderClans(){
+ rowEls.forEach((li,i)=>{
+  const sel=selected===i,col=CLANS[i].c;
+  li.style.borderColor=sel?col:'transparent';
+  li.style.background=sel?rgba(col,.14):'';
+  let s=0;for(const id in state.cells)if(state.cells[id]===i)s+=cellValue(id);
+  scoreEls[i].textContent=s;scoreEls[i].classList.toggle('zero',s===0);
+ });
+}
+function renderMap(){
+ for(const id in cellEls){
+  const el=cellEls[id],owner=state.cells[id];
+  el.style.removeProperty('--ec');
+  if(owner!==undefined){
+   const cl=CLANS[owner];
+   el.className='cell';el.style.background=cl.c;el.style.color=cl.t;
+   el.textContent=tag(state.names[owner]);el.title=id+' · '+state.names[owner];
+  }else{
+   el.className='cell empty';el.style.background='';el.style.color='';
+   el.textContent=cellValue(id);el.title=id+' · '+cellValue(id)+' очков';
+  }
+  if(selected!==null&&ENTRANCES[selected].includes(id)){
+   el.classList.add('entr');el.style.setProperty('--ec',CLANS[selected].c);
+   if(owner===undefined)el.style.background=rgba(CLANS[selected].c,.22);
+  }
+ }
+}
+
+const overlay=$('#overlay');
+$('#resetBtn').addEventListener('click',()=>overlay.classList.add('show'));
+$('#cancelBtn').addEventListener('click',()=>overlay.classList.remove('show'));
+overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('show');});
+$('#confirmBtn').addEventListener('click',()=>{
+ rowAPI.forEach(r=>r.commit());
+ localStorage.removeItem(LS);state=defState();selected=null;
+ rowAPI.forEach(r=>r.setNameText());
+ overlay.classList.remove('show');save();renderClans();renderMap();
+});
+renderClans();renderMap();
+</script>
+</body>
+</html>
